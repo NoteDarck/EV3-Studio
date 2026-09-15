@@ -5,213 +5,120 @@ import sys
 import tempfile
 from pathlib import Path
 
-from PySide6.QtCore import QObject, QUrl, Signal, Slot, Qt
+from PySide6.QtCore import QObject, QProcess, QTimer, QUrl, Signal, Slot, Qt
 from PySide6.QtGui import QIcon, QKeySequence, QShortcut
 from PySide6.QtWidgets import (
-    QApplication, QFileDialog, QLabel, QMainWindow, QMessageBox,
-    QPlainTextEdit, QPushButton, QSplitter, QHBoxLayout, QVBoxLayout,
-    QWidget
+    QApplication, QDialog, QDialogButtonBox, QFileDialog, QFormLayout,
+    QHBoxLayout, QLabel, QLineEdit, QMainWindow, QMessageBox, QPlainTextEdit,
+    QPushButton, QSpinBox, QDoubleSpinBox, QSplitter, QVBoxLayout, QWidget,
+    QComboBox
 )
 from PySide6.QtWebChannel import QWebChannel
 from PySide6.QtWebEngineWidgets import QWebEngineView
 
+from ev3studio_config import load_config, save_config
+from validator import validate_code, validate_project
+
 BASE_DIR = Path(__file__).resolve().parent
 WEB_DIR = BASE_DIR / "web"
-
 
 class Bridge(QObject):
     code_received = Signal(str)
     project_received = Signal(str, str)
-
     @Slot(str)
-    def receive_code(self, code):
-        self.code_received.emit(code)
-
+    def receive_code(self, code): self.code_received.emit(code)
     @Slot(str, str)
-    def receive_project(self, xml, code):
-        self.project_received.emit(xml, code)
+    def receive_project(self, xml, code): self.project_received.emit(xml, code)
 
+class RobotDialog(QDialog):
+    def __init__(self, parent, config):
+        super().__init__(parent); self.setWindowTitle("Configuração do robô")
+        form = QFormLayout(self); self.left = QComboBox(); self.left.addItems(list("ABCD")); self.left.setCurrentText(config["left_motor"])
+        self.right = QComboBox(); self.right.addItems(list("ABCD")); self.right.setCurrentText(config["right_motor"])
+        self.wheel = QDoubleSpinBox(); self.wheel.setRange(1,1000); self.wheel.setValue(config["wheel_diameter_mm"]); self.wheel.setSuffix(" mm")
+        self.track = QDoubleSpinBox(); self.track.setRange(1,2000); self.track.setValue(config["axle_track_mm"]); self.track.setSuffix(" mm")
+        self.connection = QComboBox(); self.connection.addItems(["ble", "usb"]); self.connection.setCurrentText(config["connection"])
+        self.name = QLineEdit(config.get("device_name", ""))
+        form.addRow("Motor esquerdo", self.left); form.addRow("Motor direito", self.right); form.addRow("Diâmetro da roda", self.wheel); form.addRow("Distância entre rodas", self.track); form.addRow("Conexão", self.connection); form.addRow("Nome do EV3", self.name)
+        buttons=QDialogButtonBox(QDialogButtonBox.Save|QDialogButtonBox.Cancel); buttons.accepted.connect(self.accept); buttons.rejected.connect(self.reject); form.addRow(buttons)
+    def values(self): return {"left_motor":self.left.currentText(),"right_motor":self.right.currentText(),"wheel_diameter_mm":self.wheel.value(),"axle_track_mm":self.track.value(),"connection":self.connection.currentText(),"device_name":self.name.text()}
 
 class MainWindow(QMainWindow):
     def __init__(self):
-        super().__init__()
-        self.setWindowTitle("EV3 Studio")
-        self.resize(1280, 800)
-        icon_path = BASE_DIR / "assets" / "ev3-studio.svg"
-        if icon_path.exists():
-            self.setWindowIcon(QIcon(str(icon_path)))
-        self.current_code = ""
-
-        self.bridge = Bridge()
-        self.bridge.code_received.connect(self.on_code_received)
-        self.bridge.project_received.connect(self.on_project_received)
-
-        self.editor = QWebEngineView()
-        channel = QWebChannel(self.editor.page())
-        channel.registerObject("bridge", self.bridge)
-        self.editor.page().setWebChannel(channel)
-        self.editor.setUrl(QUrl.fromLocalFile(str(WEB_DIR / "blockly.html")))
-
-        self.code_view = QPlainTextEdit()
-        self.code_view.setReadOnly(True)
-        self.code_view.setPlaceholderText("O código Python gerado aparecerá aqui...")
-        self.code_view.setStyleSheet("font-family: monospace; font-size: 13px;")
-
-        self.status = QLabel("Pronto. Conecte o EV3 antes de executar.")
-        self.code_title = QLabel("Código Python Pybricks")
-
-        self.open_button = QPushButton("Abrir projeto")
-        self.open_button.clicked.connect(self.open_project)
-        self.save_button = QPushButton("Salvar projeto")
-        self.save_button.clicked.connect(self.save_project)
-        self.run_button = QPushButton("▶ Executar no EV3")
-        self.run_button.clicked.connect(self.run_on_ev3)
-        self.code_button = QPushButton("Código Python (F5)")
-        self.code_button.clicked.connect(self.toggle_code_panel)
-
-        # Barra superior: os botões ficam agrupados no canto direito.
-        top_bar = QHBoxLayout()
-        top_bar.setContentsMargins(8, 6, 8, 6)
-        top_bar.addStretch()
-        top_bar.addWidget(self.open_button)
-        top_bar.addWidget(self.save_button)
-        top_bar.addWidget(self.code_button)
-        top_bar.addWidget(self.run_button)
-
-        self.code_panel = QWidget()
-        code_layout = QVBoxLayout(self.code_panel)
-        code_layout.setContentsMargins(0, 0, 0, 0)
-        code_layout.addWidget(self.code_title)
-        code_layout.addWidget(self.code_view)
-        code_layout.addWidget(self.status)
-
-        self.splitter = QSplitter(Qt.Horizontal)
-        self.splitter.addWidget(self.editor)
-        self.splitter.addWidget(self.code_panel)
-        self.splitter.setSizes([1280, 500])
-        self.code_panel.hide()
-
-        central = QWidget()
-        layout = QVBoxLayout(central)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(0)
-        layout.addLayout(top_bar)
-        layout.addWidget(self.splitter)
-        self.setCentralWidget(central)
-
-        # F5 alterna a visualização do código Python.
-        self.code_shortcut = QShortcut(QKeySequence(Qt.Key_F5), self)
-        self.code_shortcut.activated.connect(self.toggle_code_panel)
-
-    def toggle_code_panel(self):
-        visible = not self.code_panel.isVisible()
-        self.code_panel.setVisible(visible)
-        self.code_button.setText("Ocultar código (F5)" if visible else "Código Python (F5)")
-        if visible:
-            self.splitter.setSizes([800, 480])
-            self.status.setText("Código Python exibido. Pressione F5 novamente para ocultar.")
-        else:
-            self.status.setText("Código Python oculto. Pressione F5 para exibir.")
-
+        super().__init__(); self.setWindowTitle("EV3 Studio"); self.resize(1320, 850); self.config=load_config(); self.current_code=""; self.process=None
+        icon=BASE_DIR/"assets"/"ev3-studio.svg"; self.setWindowIcon(QIcon(str(icon))) if icon.exists() else None
+        self.bridge=Bridge(); self.bridge.code_received.connect(self.on_code); self.bridge.project_received.connect(self.on_project)
+        self.editor=QWebEngineView(); channel=QWebChannel(self.editor.page()); channel.registerObject("bridge",self.bridge); self.editor.page().setWebChannel(channel); self.editor.setUrl(QUrl.fromLocalFile(str(WEB_DIR/"blockly.html")))
+        self.code=QPlainTextEdit(); self.code.setReadOnly(True); self.code.setStyleSheet("font-family: monospace; font-size: 13px;")
+        self.log=QPlainTextEdit(); self.log.setReadOnly(True); self.log.setMaximumHeight(130); self.status=QLabel("Pronto. Configure e conecte o EV3 antes de executar.")
+        self.code_panel=QWidget(); cp=QVBoxLayout(self.code_panel); cp.addWidget(QLabel("Código Python Pybricks")); cp.addWidget(self.code); cp.addWidget(QLabel("Console")); cp.addWidget(self.log); cp.addWidget(self.status); self.code_panel.hide()
+        self.open_btn=self.button("Abrir projeto",self.open_project); self.save_btn=self.button("Salvar projeto",self.save_project); self.config_btn=self.button("Configurar robô",self.configure_robot); self.devices_btn=self.button("Detectar EV3",self.detect_devices); self.code_btn=self.button("Código Python (F5)",self.toggle_code); self.run_btn=self.button("▶ Executar",self.run_on_ev3); self.stop_btn=self.button("■ Parar",self.stop_program); self.stop_btn.setEnabled(False)
+        top=QHBoxLayout(); top.addStretch(); [top.addWidget(x) for x in [self.open_btn,self.save_btn,self.config_btn,self.devices_btn,self.code_btn,self.run_btn,self.stop_btn]]
+        self.splitter=QSplitter(Qt.Horizontal); self.splitter.addWidget(self.editor); self.splitter.addWidget(self.code_panel); self.splitter.setSizes([900,500])
+        central=QWidget(); layout=QVBoxLayout(central); layout.setContentsMargins(0,0,0,0); layout.addLayout(top); layout.addWidget(self.splitter); self.setCentralWidget(central)
+        QShortcut(QKeySequence(Qt.Key_F5),self).activated.connect(self.toggle_code); QShortcut(QKeySequence(Qt.Key_Escape),self).activated.connect(self.stop_program)
+        self.process_timer=QTimer(self); self.process_timer.timeout.connect(self.read_process)
+        self.create_menu()
+    def button(self,text,slot): b=QPushButton(text); b.clicked.connect(slot); return b
+    def create_menu(self):
+        file=self.menuBar().addMenu("Arquivo"); file.addAction("Novo",self.new_project); file.addAction("Abrir",self.open_project); file.addAction("Salvar",self.save_project); file.addSeparator(); file.addAction("Sair",self.close)
+        run=self.menuBar().addMenu("Executar"); run.addAction("Executar no EV3",self.run_on_ev3); run.addAction("Parar",self.stop_program); run.addAction("Detectar EV3",self.detect_devices)
+        helpm=self.menuBar().addMenu("Ajuda"); helpm.addAction("Sobre",lambda: QMessageBox.information(self,"Sobre EV3 Studio","EV3 Studio — programação visual Linux para LEGO Mindstorms EV3."))
+    def toggle_code(self): self.code_panel.setVisible(not self.code_panel.isVisible()); self.code_btn.setText("Ocultar código (F5)" if self.code_panel.isVisible() else "Código Python (F5)")
     @Slot(str)
-    def on_code_received(self, code):
-        self.current_code = code
-        self.code_view.setPlainText(code)
-
-    @Slot(str, str)
-    def on_project_received(self, xml, code):
-        self.current_code = code
-        self.code_view.setPlainText(code)
-
+    def on_code(self,code): self.current_code=code; self.code.setPlainText(code)
+    @Slot(str,str)
+    def on_project(self,xml,code): self.current_code=code; self.code.setPlainText(code)
+    def append_log(self,text): self.log.appendPlainText(text.rstrip())
+    def new_project(self): self.editor.page().runJavaScript("workspace.clear(); sendCodeToApp();"); self.status.setText("Novo projeto.")
+    def configure_robot(self):
+        d=RobotDialog(self,self.config)
+        if d.exec(): self.config=d.values(); save_config(self.config); self.status.setText("Configuração do robô salva.")
+    def detect_devices(self):
+        try:
+            r=subprocess.run(["pybricksdev","devices"],capture_output=True,text=True,check=False); out=(r.stdout or "")+(r.stderr or ""); self.append_log(out or "Nenhum dispositivo retornado."); self.status.setText("Detecção concluída.")
+        except FileNotFoundError: QMessageBox.critical(self,"pybricksdev não encontrado","Instale as dependências com install.sh.")
     def save_project(self):
-        path, _ = QFileDialog.getSaveFileName(
-            self, "Salvar projeto", "programa.ev3proj", "EV3 Studio (*.ev3proj)"
-        )
-        if not path:
-            return
-
-        def save_when_ready(xml, code):
-            try:
-                payload = {"version": 1, "xml": xml, "code": code}
-                Path(path).write_text(json.dumps(payload, indent=2), encoding="utf-8")
-                self.status.setText(f"Projeto salvo: {path}")
-            except OSError as exc:
-                QMessageBox.critical(self, "Erro ao salvar", str(exc))
-            try:
-                self.bridge.project_received.disconnect(save_when_ready)
-            except (RuntimeError, TypeError):
-                pass
-
-        self.bridge.project_received.connect(save_when_ready)
-        self.editor.page().runJavaScript("window.sendProjectToApp();")
-
+        path,_=QFileDialog.getSaveFileName(self,"Salvar projeto","programa.ev3proj","EV3 Studio (*.ev3proj)")
+        if not path:return
+        def save(xml,code):
+            errors=validate_project({"xml":xml,"code":code})
+            if errors: QMessageBox.warning(self,"Projeto inválido","\n".join(errors)); return
+            Path(path).write_text(json.dumps({"version":2,"xml":xml,"code":code,"robot":self.config},indent=2),encoding="utf-8"); self.status.setText(f"Projeto salvo: {path}")
+        self.bridge.project_received.connect(save); self.editor.page().runJavaScript("sendProjectToApp();"); QTimer.singleShot(1000,lambda: self._disconnect(save))
+    def _disconnect(self,fn):
+        try:self.bridge.project_received.disconnect(fn)
+        except (RuntimeError,TypeError):pass
     def open_project(self):
-        path, _ = QFileDialog.getOpenFileName(
-            self, "Abrir projeto", "", "EV3 Studio (*.ev3proj)"
-        )
-        if not path:
-            return
+        path,_=QFileDialog.getOpenFileName(self,"Abrir projeto","","EV3 Studio (*.ev3proj)")
+        if not path:return
         try:
-            data = json.loads(Path(path).read_text(encoding="utf-8"))
-            xml = data["xml"]
-            self.editor.page().runJavaScript(
-                f"window.loadProject({json.dumps(xml)});"
-            )
-            self.status.setText(f"Projeto aberto: {path}")
-        except (OSError, json.JSONDecodeError, KeyError) as exc:
-            QMessageBox.critical(self, "Erro ao abrir projeto", str(exc))
-
+            data=json.loads(Path(path).read_text(encoding="utf-8")); errors=validate_project(data)
+            if errors and "xml" not in data: raise ValueError("\n".join(errors))
+            self.editor.page().runJavaScript(f"loadProject({json.dumps(data['xml'])});"); self.status.setText(f"Projeto aberto: {path}")
+        except (OSError,json.JSONDecodeError,KeyError,ValueError) as e: QMessageBox.critical(self,"Erro ao abrir",str(e))
     def run_on_ev3(self):
-        def run_when_ready(code):
-            try:
-                self.bridge.code_received.disconnect(run_when_ready)
-            except (RuntimeError, TypeError):
-                pass
-            self._send_code_to_ev3(code)
-
-        self.bridge.code_received.connect(run_when_ready)
-        self.editor.page().runJavaScript("window.sendCodeToApp();")
-
-    def _send_code_to_ev3(self, code):
-        if not code.strip():
-            QMessageBox.warning(self, "Programa vazio", "Adicione blocos antes de executar.")
-            return
-        temp_path = None
+        def start(code): self._disconnect(start); self._send(code)
+        self.bridge.code_received.connect(start); self.editor.page().runJavaScript("sendCodeToApp();")
+    def _send(self,code):
+        errors=validate_code(code)
+        if errors: QMessageBox.warning(self,"Corrija o programa","\n".join(errors)); return
         try:
-            with tempfile.NamedTemporaryFile(
-                mode="w", suffix=".py", prefix="ev3studio_", delete=False, encoding="utf-8"
-            ) as temp:
-                temp.write(code)
-                temp_path = temp.name
+            f=tempfile.NamedTemporaryFile(mode="w",suffix=".py",prefix="ev3studio_",delete=False,encoding="utf-8"); f.write(code); f.close(); self.temp_path=f.name
+            args=["pybricksdev","run",self.config.get("connection","ble")];
+            if self.config.get("device_name"): args += ["--name",self.config["device_name"]]
+            args += [self.temp_path]; self.process=subprocess.Popen(args,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True); self.stop_btn.setEnabled(True); self.status.setText("Executando no EV3..."); self.process_timer.start(100)
+        except FileNotFoundError: QMessageBox.critical(self,"pybricksdev não encontrado","Execute ./install.sh ou instale pybricksdev.")
+    def read_process(self):
+        if not self.process:return
+        line=self.process.stdout.readline() if self.process.stdout else ""
+        if line:self.append_log(line)
+        if self.process.poll() is not None:
+            self.process_timer.stop(); self.stop_btn.setEnabled(False); self.status.setText("Execução finalizada."); self.process=None; getattr(self,'temp_path',None) and os.unlink(self.temp_path)
+    def stop_program(self):
+        if self.process and self.process.poll() is None:
+            self.process.terminate(); self.append_log("Programa interrompido pelo usuário."); self.status.setText("Programa parado."); self.stop_btn.setEnabled(False)
+    def closeEvent(self,event): self.stop_program(); event.accept()
 
-            self.status.setText("Enviando programa para o EV3...")
-            result = subprocess.run(
-                ["pybricksdev", "run", "ble", temp_path],
-                capture_output=True, text=True, check=False
-            )
-            output = (result.stdout or "") + (result.stderr or "")
-            if result.returncode == 0:
-                self.status.setText("Programa enviado e iniciado no EV3.")
-            else:
-                self.status.setText("Falha ao enviar o programa.")
-                QMessageBox.warning(self, "Erro do pybricksdev", output[-4000:])
-        except FileNotFoundError:
-            QMessageBox.critical(
-                self, "pybricksdev não encontrado",
-                "Instale-o no ambiente virtual com: pip install pybricksdev"
-            )
-        except OSError as exc:
-            QMessageBox.critical(self, "Erro ao executar", str(exc))
-        finally:
-            if temp_path:
-                try:
-                    os.unlink(temp_path)
-                except OSError:
-                    pass
-
-
-if __name__ == "__main__":
-    app = QApplication(sys.argv)
-    window = MainWindow()
-    window.show()
-    sys.exit(app.exec())
+if __name__=="__main__":
+    app=QApplication(sys.argv); w=MainWindow(); w.show(); sys.exit(app.exec())

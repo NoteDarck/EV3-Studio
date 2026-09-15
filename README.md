@@ -1,42 +1,67 @@
-# EV3 Studio — MVP para Linux
+# EV3 Studio
 
-O EV3 Studio é um aplicativo desktop em Python para programar o LEGO Mindstorms EV3 com blocos e enviar o programa para o robô usando Pybricks.
+Ambiente visual para programar o LEGO Mindstorms EV3 no Linux com Blockly, Python e Pybricks.
 
 ## Instalação
 
 ```bash
-cd ~/Projetos/ev3-studio
-python -m venv .venv
-source .venv/bin/activate
-python -m pip install --upgrade pip
-python -m pip install -r requirements.txt
-python main.py
+chmod +x install.sh uninstall.sh
+./install.sh
 ```
 
-O EV3 precisa estar com firmware EV3 MicroPython/Pybricks. Teste a conexão com `pybricksdev devices`.
+O instalador cria o ambiente virtual, instala as dependências, copia o aplicativo para `~/.local/share/ev3-studio`, cria o comando `~/.local/bin/ev3-studio`, o ícone e o atalho do menu. Para remover:
 
-## Blocos disponíveis
+```bash
+./uninstall.sh
+```
 
-A biblioteca visual agora inclui:
+Seus arquivos `.ev3proj` não são removidos.
 
-| Categoria | Funções |
-|---|---|
-| Motores | Rodar por tempo, rodar por ângulo, rodar continuamente, parar com freio/inércia/segurar e zerar ângulo |
-| Controle | Esperar, repetir quantidade de vezes e repetir para sempre |
-| Sensores | Esperar toque, esperar cor, esperar distância e esperar ângulo do giroscópio |
-| Bloco EV3 | Esperar botão, luz do bloco e escrever texto na tela |
-| Som | Bipe configurável e fala de texto |
+## Recursos implementados
 
-Motores usam portas `A` a `D`. Sensores usam portas `S1` a `S4`.
+O aplicativo possui categorias de Motores, Movimento, Monitor/Display, Som, Eventos, Controle, Sensores, Operadores, Variáveis, Listas e Meus Blocos. O código é atualizado em tempo real e abre com **F5**. Os botões ficam no alto à direita.
 
-## Layout e F5
+A configuração do robô permite escolher motores esquerdo/direito, diâmetro da roda, distância entre rodas, Bluetooth/USB e nome do EV3. Esses dados ficam em `~/.config/ev3-studio/robot.json`.
 
-Os botões ficam no alto, alinhados à direita. O painel do código fica oculto para deixar mais espaço para os blocos. Pressione **F5** ou clique em **Código Python (F5)** para abrir e fechar o código gerado.
+O menu Executar possui detecção de dispositivos, execução e parada. O atalho `Esc` interrompe o processo local do `pybricksdev`. O console mostra a saída do envio. Antes de executar ou salvar, o validador verifica programa vazio e portas inválidas.
 
-## Mídia local
+Projetos guardam Blockly, código gerado e configuração do robô no arquivo `.ev3proj`.
 
-O Blockly e as texturas do lixo são distribuídos localmente em `web/lib` e `web/media`. Mantenha essas pastas junto de `main.py`.
+## Testes
 
-## Observação sobre os sensores
+Execute:
 
-Os blocos geram código Pybricks para os dispositivos selecionados. Antes de executar, conecte o sensor correto à porta escolhida. O programa pode ficar aguardando indefinidamente nos blocos de espera até que a condição seja atendida.
+```bash
+python3 -m unittest -v test_ev3studio.py
+```
+
+Também é possível validar a sintaxe:
+
+```bash
+python3 -m py_compile main.py ev3studio_config.py validator.py
+```
+
+## Firmware e conexão
+
+O EV3 precisa usar EV3 MicroPython/Pybricks. Teste a conexão com:
+
+```bash
+pybricksdev devices
+```
+
+A aplicação chama `pybricksdev run ble` ou `pybricksdev run usb` conforme a configuração. Sensores devem estar conectados às portas selecionadas. Eventos visuais e blocos de procedimentos são representados no Blockly; a execução concorrente completa de múltiplos eventos requer uma futura camada de tarefas no programa Pybricks.
+
+## Estrutura
+
+```text
+main.py              Aplicativo PySide6
+web/blockly.html     Blocos e gerador Python
+web/lib              Blockly local
+web/media            Mídias e textura do lixo
+assets               Ícone SVG
+ev3studio_config.py  Configuração e calibração
+validator.py         Validação antes do envio
+test_ev3studio.py    Testes automatizados
+install.sh           Instalação
+uninstall.sh         Desinstalação
+```
