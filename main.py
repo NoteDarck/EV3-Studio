@@ -18,6 +18,7 @@ from PySide6.QtWebEngineWidgets import QWebEngineView
 
 from ev3studio_config import load_config, save_config
 from validator import validate_code, validate_project
+from tutorials import BEGINNER_TUTORIAL, ABOUT_TUTORIAL
 
 BASE_DIR = Path(__file__).resolve().parent
 WEB_DIR = BASE_DIR / "web"
@@ -63,7 +64,28 @@ class MainWindow(QMainWindow):
     def create_menu(self):
         file=self.menuBar().addMenu("Arquivo"); file.addAction("Novo",self.new_project); file.addAction("Abrir",self.open_project); file.addAction("Salvar",self.save_project); file.addSeparator(); file.addAction("Sair",self.close)
         run=self.menuBar().addMenu("Executar"); run.addAction("Executar no EV3",self.run_on_ev3); run.addAction("Parar",self.stop_program); run.addAction("Detectar EV3",self.detect_devices)
-        helpm=self.menuBar().addMenu("Ajuda"); helpm.addAction("Sobre",lambda: QMessageBox.information(self,"Sobre EV3 Studio","EV3 Studio — programação visual Linux para LEGO Mindstorms EV3."))
+        helpm=self.menuBar().addMenu("Ajuda")
+        helpm.addAction("Tutorial para iniciantes", lambda: self.show_tutorial("Tutorial para iniciantes", BEGINNER_TUTORIAL))
+        helpm.addAction("Conhecer o EV3 Studio", lambda: self.show_tutorial("Conhecendo o EV3 Studio", ABOUT_TUTORIAL))
+        helpm.addSeparator()
+        helpm.addAction("Sobre",lambda: QMessageBox.information(self,"Sobre EV3 Studio","EV3 Studio — programação visual Linux para LEGO Mindstorms EV3."))
+    def show_tutorial(self, title, html):
+        dialog = QDialog(self)
+        dialog.setWindowTitle(title)
+        dialog.resize(760, 620)
+        layout = QVBoxLayout(dialog)
+        view = QPlainTextEdit()
+        view.setReadOnly(True)
+        # QTextBrowser renderiza HTML sem depender de internet.
+        from PySide6.QtWidgets import QTextBrowser
+        rendered = QTextBrowser()
+        rendered.setOpenExternalLinks(True)
+        rendered.setHtml(html)
+        layout.addWidget(rendered)
+        close_button = QPushButton("Fechar")
+        close_button.clicked.connect(dialog.accept)
+        layout.addWidget(close_button)
+        dialog.exec()
     def toggle_code(self): self.code_panel.setVisible(not self.code_panel.isVisible()); self.code_btn.setText("Ocultar código (F5)" if self.code_panel.isVisible() else "Código Python (F5)")
     @Slot(str)
     def on_code(self,code): self.current_code=code; self.code.setPlainText(code)

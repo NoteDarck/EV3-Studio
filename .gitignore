@@ -1,0 +1,23 @@
+# Artefatos de build
+build/
+dist/
+*.AppImage
+*.AppImage.zsync
+
+# Pacotes PyInstaller / _internal
+_internal/
+*.so
+*.so.*
+
+# AppDir (saída de build)
+AppDir/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# IDE
+.vscode/
+.idea/

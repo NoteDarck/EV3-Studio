@@ -21,6 +21,8 @@ Seus arquivos `.ev3proj` não são removidos.
 
 O aplicativo possui categorias de Motores, Movimento, Monitor/Display, Som, Eventos, Controle, Sensores, Operadores, Variáveis, Listas e Meus Blocos. O código é atualizado em tempo real e abre com **F5**. Os botões ficam no alto à direita.
 
+O menu **Ajuda** possui dois guias internos que funcionam sem internet: **Tutorial para iniciantes**, com o primeiro programa passo a passo, e **Conhecer o EV3 Studio**, que explica a interface, as categorias, a configuração do robô, o fluxo de geração Python e os atalhos.
+
 A configuração do robô permite escolher motores esquerdo/direito, diâmetro da roda, distância entre rodas, Bluetooth/USB e nome do EV3. Esses dados ficam em `~/.config/ev3-studio/robot.json`.
 
 O menu Executar possui detecção de dispositivos, execução e parada. O atalho `Esc` interrompe o processo local do `pybricksdev`. O console mostra a saída do envio. Antes de executar ou salvar, o validador verifica programa vazio e portas inválidas.
@@ -55,6 +57,7 @@ A aplicação chama `pybricksdev run ble` ou `pybricksdev run usb` conforme a co
 
 ```text
 main.py              Aplicativo PySide6
+ tutorials.py         Tutoriais internos do menu Ajuda
 web/blockly.html     Blocos e gerador Python
 web/lib              Blockly local
 web/media            Mídias e textura do lixo
