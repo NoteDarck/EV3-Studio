@@ -66,7 +66,7 @@ class MainWindow(QMainWindow):
         run=self.menuBar().addMenu("Executar"); run.addAction("Executar no EV3",self.run_on_ev3); run.addAction("Parar",self.stop_program); run.addAction("Detectar EV3",self.detect_devices)
         helpm=self.menuBar().addMenu("Ajuda")
         helpm.addAction("Tutorial para iniciantes", lambda: self.show_tutorial("Tutorial para iniciantes", BEGINNER_TUTORIAL))
-        helpm.addAction("Conhecer o EV3 Studio", lambda: self.show_tutorial("Conhecendo o EV3 Studio", ABOUT_TUTORIAL))
+        helpm.addAction("Conheça o EV3 Studio", lambda: self.show_tutorial("Conheça o EV3 Studio", ABOUT_TUTORIAL))
         helpm.addSeparator()
         helpm.addAction("Sobre",lambda: QMessageBox.information(self,"Sobre EV3 Studio","EV3 Studio — programação visual Linux para LEGO Mindstorms EV3."))
     def show_tutorial(self, title, html):
