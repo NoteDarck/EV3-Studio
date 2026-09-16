@@ -3,6 +3,8 @@ import os
 import subprocess
 import sys
 import tempfile
+import threading
+import webbrowser
 from pathlib import Path
 
 from PySide6.QtCore import QObject, QProcess, QTimer, QUrl, Signal, Slot, Qt
@@ -20,6 +22,7 @@ from ev3studio_config import load_config, save_config
 from validator import validate_code, validate_project
 from tutorials import BEGINNER_TUTORIAL, ABOUT_TUTORIAL
 from simulator import EV3Simulator
+from update_checker import check_latest, APP_VERSION
 
 BASE_DIR = Path(__file__).resolve().parent
 WEB_DIR = BASE_DIR / "web"
@@ -144,6 +147,7 @@ class RobotDialog(QDialog):
 # Janela principal
 # ============================================================
 class MainWindow(QMainWindow):
+    update_result = Signal(object)
     def __init__(self):
         super().__init__()
         self.setWindowTitle("EV3 Studio")
@@ -243,6 +247,7 @@ class MainWindow(QMainWindow):
         self.process_timer.timeout.connect(self.read_process)
 
         self.create_menu()
+        self.update_result.connect(self._show_update_result)
 
     # --------------------------------------------------------
     # Utilidades
@@ -286,9 +291,30 @@ class MainWindow(QMainWindow):
         helpm.addAction("Conhecer o EV3 Studio",
                         lambda: self.show_tutorial("Conhecendo o EV3 Studio", ABOUT_TUTORIAL))
         helpm.addSeparator()
+        helpm.addAction("Verificar atualizações", self.check_for_updates)
+        helpm.addSeparator()
         helpm.addAction("Sobre", lambda: QMessageBox.information(
             self, "Sobre EV3 Studio",
-            "EV3 Studio — programação visual Linux para LEGO Mindstorms EV3."))
+            f"EV3 Studio — programação visual Linux para LEGO Mindstorms EV3.\nVersão {APP_VERSION}"))
+
+    def check_for_updates(self):
+        self.status.setText("Verificando atualizações no GitHub...")
+        threading.Thread(target=lambda: self.update_result.emit(check_latest()), daemon=True).start()
+
+    def _show_update_result(self, result):
+        self.status.setText(result.message)
+        if not result.ok:
+            QMessageBox.warning(self, "Atualizações", result.message)
+            return
+        if result.message == "Nova versão disponível.":
+            box = QMessageBox(QMessageBox.Information, "Nova versão disponível", f"Instalada: {result.current}\nDisponível: {result.latest}\n\nAbrir a página do Release para baixar?", parent=self)
+            download = box.addButton("Abrir download", QMessageBox.AcceptRole)
+            box.addButton("Depois", QMessageBox.RejectRole)
+            box.exec()
+            if box.clickedButton() is download:
+                webbrowser.open(result.url)
+        else:
+            QMessageBox.information(self, "Atualizações", f"Você está usando a versão {result.current}.\nRelease mais recente: {result.latest or 'nenhum'}.")
 
     def show_tutorial(self, title, html):
         dialog = QDialog(self)
@@ -379,6 +405,7 @@ class MainWindow(QMainWindow):
         def open_sim(code):
             dialog = EV3Simulator(self)
             dialog.set_code(code)
+            dialog.set_robot_config(self.config)
             dialog.exec()
         self._request_code_once(open_sim)
 

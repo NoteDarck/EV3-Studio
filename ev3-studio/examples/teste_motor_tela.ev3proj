@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "xml": "<xml xmlns=\"https://developers.google.com/blockly/xml\"><block type=\"ev3_start\" id=\"example-start\" x=\"120\" y=\"80\"><statement name=\"DO\"><block type=\"ev3_motor_time\" id=\"example-motor\"><field name=\"PORT\">A</field><field name=\"SPEED\">50</field><field name=\"SECONDS\">2</field><next><block type=\"ev3_screen_text\" id=\"example-screen\"><field name=\"TEXT\">Teste OK</field><field name=\"X\">0</field><field name=\"Y\">30</field></block></next></block></statement></block></xml>",
+  "code": "from pybricks.hubs import EV3Brick\nfrom pybricks.ev3devices import Motor\nfrom pybricks.parameters import Port\nfrom pybricks.tools import wait\n\nev3 = EV3Brick()\nmotor_a = Motor(Port.A)\nmotors = {'A': motor_a}\n\nmotor_a.run_time(500, 2000)\nev3.screen.clear()\nev3.screen.draw_text(0, 30, 'Teste OK')\nwait(1000)\n",
+  "robot": {
+    "left_motor": "B",
+    "right_motor": "C",
+    "wheel_diameter_mm": 56.0,
+    "axle_track_mm": 120.0,
+    "connection": "usb",
+    "device_name": "",
+    "device_address": ""
+  }
+}

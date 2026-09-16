@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8"><title>EV3 Studio Blockly</title>
+<script src="lib/blockly.min.js"></script><script src="lib/python_compressed.js"></script><script src="qrc:///qtwebchannel/qwebchannel.js"></script>
+<style>
+html,body{height:100%;margin:0;overflow:hidden;font-family:sans-serif}
+#blocklyDiv{position:relative;height:100%;width:100%;min-width:520px;min-height:420px}
+</style>
+</head>
+<body><div id="blocklyDiv"></div><script>
+let bridge; new QWebChannel(qt.webChannelTransport,c=>{bridge=c.objects.bridge;});
+const motorPorts=[['A','A'],['B','B'],['C','C'],['D','D']], sensorPorts=[['1','S1'],['2','S2'],['3','S3'],['4','S4']];
+const toolbox=`<xml>
+<category name="EV3 - Início" colour="#00a86b"><block type="ev3_start"></block></category>
+<category name="⚙ Motores" colour="#ff9800"><block type="ev3_motor_time"></block><block type="ev3_motor_angle"></block><block type="ev3_motor_forever"></block><block type="ev3_motor_speed"></block><block type="ev3_motor_stop"></block><block type="ev3_motor_reset"></block><block type="ev3_motor_get_angle"></block></category>
+<category name="↔ Movimento" colour="#26a69a"><block type="ev3_drive_distance"></block><block type="ev3_drive_turn"></block><block type="ev3_drive_start"></block><block type="ev3_drive_stop"></block></category>
+<category name="▣ Tela" colour="#607d8b"><block type="ev3_screen_text"></block><block type="ev3_screen_line"></block><block type="ev3_screen_rect"></block><block type="ev3_screen_circle"></block><block type="ev3_screen_clear"></block><block type="ev3_light"></block></category>
+<category name="♫ Som" colour="#9c27b0"><block type="ev3_beep"></block><block type="ev3_note"></block><block type="ev3_sound_file"></block><block type="ev3_sound_stop"></block><block type="ev3_speak"></block></category>
+<category name="⚡ Eventos" colour="#e91e63"><block type="ev3_event_touch"></block><block type="ev3_event_color"></block><block type="ev3_event_distance"></block><block type="ev3_event_gyro"></block><block type="ev3_event_message"></block><block type="ev3_event_timer"></block></category>
+<category name="↻ Controle" colour="#2196f3"><block type="ev3_wait"></block><block type="ev3_wait_until"></block><block type="ev3_repeat"></block><block type="ev3_forever"></block><block type="controls_if"></block><block type="controls_repeat_ext"></block><block type="ev3_stop_script"></block></category>
+<category name="◉ Sensores" colour="#795548"><block type="ev3_touch_value"></block><block type="ev3_color_value"></block><block type="ev3_reflected_value"></block><block type="ev3_ambient_value"></block><block type="ev3_ultrasonic_value"></block><block type="ev3_gyro_angle"></block><block type="ev3_gyro_rate"></block><block type="ev3_timer_value"></block></category>
+<category name="Operadores" colour="#5c6bc0"><block type="logic_compare"></block><block type="logic_operation"></block><block type="logic_negate"></block><block type="logic_boolean"></block><block type="math_number"></block><block type="math_arithmetic"></block><block type="math_random_int"></block><block type="math_round"></block><block type="math_single"></block></category>
+<category name="Variáveis" custom="VARIABLE" colour="#a67c00"></category>
+<category name="Listas" colour="#a67c00"><block type="lists_create_with"></block><block type="lists_length"></block><block type="lists_isEmpty"></block><block type="lists_indexOf"></block><block type="lists_getIndex"></block><block type="lists_setIndex"></block><block type="lists_getSublist"></block><block type="lists_split"></block><block type="lists_sort"></block></category>
+<category name="Meus Blocos" custom="PROCEDURE" colour="#8e44ad"></category>
+</xml>`;
+function stmt(b,c){b.setPreviousStatement(true);b.setNextStatement(true);b.setColour(c)}
+function dropdown(a){return new Blockly.FieldDropdown(a)}
+Blockly.Blocks.ev3_start={init(){this.appendDummyInput().appendField('INÍCIO');this.appendStatementInput('DO');this.setColour('#00a86b')}};
+Blockly.Blocks.ev3_motor_time={init(){this.appendDummyInput().appendField('MOTOR').appendField(dropdown(motorPorts),'PORT');this.appendDummyInput().appendField('velocidade').appendField(new Blockly.FieldNumber(50,-100,100,1),'SPEED').appendField('%');this.appendDummyInput().appendField('tempo').appendField(new Blockly.FieldNumber(2,0,3600,.1),'SECONDS').appendField('s');stmt(this,'#ff9800')}};
+Blockly.Blocks.ev3_motor_angle={init(){this.appendDummyInput().appendField('MOTOR POR ÂNGULO').appendField(dropdown(motorPorts),'PORT');this.appendDummyInput().appendField('velocidade').appendField(new Blockly.FieldNumber(50,-100,100,1),'SPEED').appendField('%');this.appendDummyInput().appendField('ângulo').appendField(new Blockly.FieldNumber(360,-100000,100000,1),'ANGLE').appendField('graus');stmt(this,'#ff9800')}};
+Blockly.Blocks.ev3_motor_forever={init(){this.appendDummyInput().appendField('MOTOR CONTÍNUO').appendField(dropdown(motorPorts),'PORT');this.appendDummyInput().appendField('velocidade').appendField(new Blockly.FieldNumber(50,-100,100,1),'SPEED').appendField('%');stmt(this,'#ff9800')}};
+Blockly.Blocks.ev3_motor_stop={init(){this.appendDummyInput().appendField('PARAR MOTOR').appendField(dropdown([...motorPorts,['todos','ALL']]),'PORT').appendField('com').appendField(dropdown([['freio','BRAKE'],['inércia','COAST'],['segurar','HOLD']]),'STOP');stmt(this,'#e53935')}};
+Blockly.Blocks.ev3_motor_reset={init(){this.appendDummyInput().appendField('ZERAR ÂNGULO DO MOTOR').appendField(dropdown(motorPorts),'PORT').appendField('em').appendField(new Blockly.FieldNumber(0,-100000,100000,1),'ANGLE').appendField('graus');stmt(this,'#ff9800')}};
+Blockly.Blocks.ev3_wait={init(){this.appendDummyInput().appendField('ESPERAR').appendField(new Blockly.FieldNumber(1,0,3600,.1),'SECONDS').appendField('segundos');stmt(this,'#2196f3')}};
+Blockly.Blocks.ev3_repeat={init(){this.appendDummyInput().appendField('REPETIR').appendField(new Blockly.FieldNumber(2,1,10000,1),'TIMES').appendField('vezes');this.appendStatementInput('DO').appendField('faça');stmt(this,'#f0c419')}};
+Blockly.Blocks.ev3_forever={init(){this.appendDummyInput().appendField('REPETIR PARA SEMPRE');this.appendStatementInput('DO').appendField('faça');stmt(this,'#f0c419')}};
+Blockly.Blocks.ev3_touch_wait={init(){this.appendDummyInput().appendField('ESPERAR TOQUE NA PORTA').appendField(dropdown(sensorPorts),'PORT');stmt(this,'#795548')}};
+Blockly.Blocks.ev3_color_wait={init(){this.appendDummyInput().appendField('ESPERAR COR').appendField(dropdown([['preto','BLACK'],['azul','BLUE'],['verde','GREEN'],['amarelo','YELLOW'],['vermelho','RED'],['branco','WHITE']]),'COLOR');this.appendDummyInput().appendField('sensor na porta').appendField(dropdown(sensorPorts),'PORT');stmt(this,'#795548')}};
+Blockly.Blocks.ev3_distance_wait={init(){this.appendDummyInput().appendField('ESPERAR DISTÂNCIA menor que').appendField(new Blockly.FieldNumber(20,0,255,1),'CM').appendField('cm');this.appendDummyInput().appendField('sensor na porta').appendField(dropdown(sensorPorts),'PORT');stmt(this,'#795548')}};
+Blockly.Blocks.ev3_gyro_wait={init(){this.appendDummyInput().appendField('ESPERAR ÂNGULO do giroscópio').appendField(new Blockly.FieldNumber(90,-36000,36000,1),'ANGLE').appendField('graus');this.appendDummyInput().appendField('sensor na porta').appendField(dropdown(sensorPorts),'PORT');stmt(this,'#795548')}};
+Blockly.Blocks.ev3_button_wait={init(){this.appendDummyInput().appendField('ESPERAR BOTÃO').appendField(dropdown([['centro','CENTER'],['cima','UP'],['baixo','DOWN'],['esquerda','LEFT'],['direita','RIGHT'],['voltar','BACK']]),'BUTTON');stmt(this,'#607d8b')}};
+Blockly.Blocks.ev3_light={init(){this.appendDummyInput().appendField('LUZ DO EV3').appendField(dropdown([['verde','GREEN'],['laranja','ORANGE'],['vermelho','RED']]),'COLOR');stmt(this,'#607d8b')}};
+Blockly.Blocks.ev3_screen={init(){this.appendDummyInput().appendField('TELA mostrar').appendField(new Blockly.FieldTextInput('Olá EV3'),'TEXT');stmt(this,'#607d8b')}};
+Blockly.Blocks.ev3_beep={init(){this.appendDummyInput().appendField('TOCAR BIP').appendField(new Blockly.FieldNumber(440,50,10000,1),'FREQ').appendField('Hz por').appendField(new Blockly.FieldNumber(.2,.01,10,.01),'SECONDS').appendField('s');stmt(this,'#9c27b0')}};
+Blockly.Blocks.ev3_speak={init(){this.appendDummyInput().appendField('FALAR').appendField(new Blockly.FieldTextInput('Olá'),'TEXT');stmt(this,'#9c27b0')}};
+const py=Blockly.Python;
+py.forBlock.ev3_start=b=>py.statementToCode(b,'DO').replace(/^  /gm,'');
+py.forBlock.ev3_motor_time=b=>`motor_${b.getFieldValue('PORT').toLowerCase()}.run_time(${Number(b.getFieldValue('SPEED'))*10}, ${Math.round(Number(b.getFieldValue('SECONDS'))*1000)})\n`;
+py.forBlock.ev3_motor_angle=b=>`motor_${b.getFieldValue('PORT').toLowerCase()}.run_angle(${Number(b.getFieldValue('SPEED'))*10}, ${Number(b.getFieldValue('ANGLE'))})\n`;
+py.forBlock.ev3_motor_forever=b=>`motor_${b.getFieldValue('PORT').toLowerCase()}.run(${Number(b.getFieldValue('SPEED'))*10})\n`;
+py.forBlock.ev3_motor_stop=b=>{let p=b.getFieldValue('PORT'),s=b.getFieldValue('STOP');return p==='ALL'?`for _motor in motors.values():\n    _motor.${s==='COAST'?'stop':s==='BRAKE'?'brake':'hold'}()\n`:`motor_${p.toLowerCase()}.${s==='COAST'?'stop':s==='BRAKE'?'brake':'hold'}()\n`};
+py.forBlock.ev3_motor_reset=b=>`motor_${b.getFieldValue('PORT').toLowerCase()}.reset_angle(${Number(b.getFieldValue('ANGLE'))})\n`;
+py.forBlock.ev3_wait=b=>`wait(${Math.round(Number(b.getFieldValue('SECONDS'))*1000)})\n`;
+py.forBlock.ev3_repeat=b=>`for _ in range(${Number(b.getFieldValue('TIMES'))}):\n${py.statementToCode(b,'DO')||'    pass\n'}`;
+py.forBlock.ev3_forever=b=>`while True:\n${py.statementToCode(b,'DO')||'    pass\n'}`;
+py.forBlock.ev3_touch_wait=b=>`while not touch_${b.getFieldValue('PORT').toLowerCase()}.pressed():\n    wait(10)\n`;
+py.forBlock.ev3_color_wait=b=>`while color_sensor_${b.getFieldValue('PORT').slice(1)}.color() != Color.${b.getFieldValue('COLOR')}:\n    wait(10)\n`;
+py.forBlock.ev3_distance_wait=b=>`while ultrasonic_${b.getFieldValue('PORT').slice(1)}.distance() >= ${Number(b.getFieldValue('CM'))}:\n    wait(10)\n`;
+py.forBlock.ev3_gyro_wait=b=>`while abs(gyro_${b.getFieldValue('PORT').slice(1)}.angle()) < abs(${Number(b.getFieldValue('ANGLE'))}):\n    wait(10)\n`;
+py.forBlock.ev3_button_wait=b=>`while Button.${b.getFieldValue('BUTTON')} not in ev3.buttons.pressed():\n    wait(10)\n`;
+py.forBlock.ev3_light=b=>`ev3.light.on(Color.${b.getFieldValue('COLOR')})\n`;
+py.forBlock.ev3_screen=b=>`ev3.screen.clear()\nev3.screen.draw_text(0, 30, ${JSON.stringify(b.getFieldValue('TEXT'))})\n`;
+py.forBlock.ev3_beep=b=>`ev3.speaker.beep(${Number(b.getFieldValue('FREQ'))}, ${Math.round(Number(b.getFieldValue('SECONDS'))*1000)})\n`;
+py.forBlock.ev3_speak=b=>`ev3.speaker.say(${JSON.stringify(b.getFieldValue('TEXT'))})\n`;
+
+function fieldText(n,d='0'){return new Blockly.FieldTextInput(d)}
+function outputBlock(name,label,colour,fields,output='Number'){Blockly.Blocks[name]={init(){this.appendDummyInput().appendField(label);for(const [l,k,v] of fields)this.appendDummyInput().appendField(l).appendField(v instanceof Blockly.FieldDropdown?v:new Blockly.FieldNumber(v||0,-100000,100000,1),k);this.setOutput(true,output);this.setColour(colour)}}}
+function commandBlock(name,label,colour,fields){Blockly.Blocks[name]={init(){this.appendDummyInput().appendField(label);for(const [l,k,v] of fields)this.appendDummyInput().appendField(l).appendField(v instanceof Blockly.FieldDropdown?v:new Blockly.FieldNumber(v||0,-100000,100000,1),k);stmt(this,colour)}}}
+const stopModes=[['freio','BRAKE'],['marcha lenta','COAST'],['manter posição','HOLD']], colours=[['preto','BLACK'],['azul','BLUE'],['verde','GREEN'],['amarelo','YELLOW'],['vermelho','RED'],['branco','WHITE']];
+commandBlock('ev3_motor_speed','DEFINIR VELOCIDADE','#ff9800',[['motor', 'PORT', dropdown(motorPorts)],['%', 'SPEED', 50]]);
+outputBlock('ev3_motor_get_angle','GRAUS CONTADOS DO MOTOR','#ff9800',[['motor','PORT',dropdown(motorPorts)]],'Number');
+commandBlock('ev3_drive_distance','MOVER EM LINHA RETA','#26a69a',[['motor esquerdo','LEFT',dropdown(motorPorts)],['motor direito','RIGHT',dropdown(motorPorts)],['distância (mm)','DIST',100]]);
+commandBlock('ev3_drive_turn','GIRAR ROBÔ','#26a69a',[['motor esquerdo','LEFT',dropdown(motorPorts)],['motor direito','RIGHT',dropdown(motorPorts)],['graus','ANGLE',90]]);
+commandBlock('ev3_drive_start','INICIAR MOVIMENTO','#26a69a',[['velocidade %','SPEED',50]]);commandBlock('ev3_drive_stop','PARAR MOVIMENTO','#26a69a',[]);
+commandBlock('ev3_screen_text','TELA: ESCREVER TEXTO','#607d8b',[['texto','TEXT',fieldText('TEXT','Olá EV3')],['x','X',0],['y','Y',30]]);commandBlock('ev3_screen_line','TELA: DESENHAR LINHA','#607d8b',[['x1','X1',0],['y1','Y1',0],['x2','X2',178],['y2','Y2',128]]);commandBlock('ev3_screen_rect','TELA: RETÂNGULO','#607d8b',[['x','X',0],['y','Y',0],['largura','W',50],['altura','H',30]]);commandBlock('ev3_screen_circle','TELA: CÍRCULO','#607d8b',[['x','X',50],['y','Y',50],['raio','R',20]]);commandBlock('ev3_screen_clear','TELA: LIMPAR','#607d8b',[]);
+commandBlock('ev3_note','TOCAR NOTA','#9c27b0',[['frequência Hz','FREQ',440],['duração ms','MS',300]]);commandBlock('ev3_sound_file','TOCAR ARQUIVO DE SOM','#9c27b0',[['arquivo','FILE',fieldText('FILE','hello.wav')]]);commandBlock('ev3_sound_stop','PARAR SOM','#9c27b0',[]);
+function hat(name,label,fields){Blockly.Blocks[name]={init(){this.appendDummyInput().appendField(label);for(const [l,k,v] of fields)this.appendDummyInput().appendField(l).appendField(v);this.appendStatementInput('DO');this.setColour('#e91e63')}}}
+hat('ev3_event_touch','QUANDO TOCAR',[['porta','PORT',dropdown(sensorPorts)]]);hat('ev3_event_color','QUANDO COR FOR',[['cor','COLOR',dropdown(colours)],['porta','PORT',dropdown(sensorPorts)]]);hat('ev3_event_distance','QUANDO DISTÂNCIA FOR MENOR QUE',[['cm','CM',new Blockly.FieldNumber(20,0,255,1)],['porta','PORT',dropdown(sensorPorts)]]);hat('ev3_event_gyro','QUANDO ÂNGULO FOR',[['graus','ANGLE',new Blockly.FieldNumber(90,-36000,36000,1)],['porta','PORT',dropdown(sensorPorts)]]);hat('ev3_event_message','QUANDO RECEBER MENSAGEM',[['mensagem','MSG',fieldText('MSG','iniciar')]]);hat('ev3_event_timer','QUANDO TIMER ATINGIR',[['segundos','SECONDS',new Blockly.FieldNumber(5,0,3600,1)]]);
+commandBlock('ev3_stop_script','PARAR SCRIPT','#2196f3',[]);commandBlock('ev3_wait_until','ESPERAR ATÉ (use uma condição)','#2196f3',[]);
+outputBlock('ev3_touch_value','SENSOR DE TOQUE: PRESSIONADO?','#795548',[['porta','PORT',dropdown(sensorPorts)]],'Boolean');outputBlock('ev3_color_value','SENSOR DE COR: COR ATUAL','#795548',[['porta','PORT',dropdown(sensorPorts)]],'String');outputBlock('ev3_reflected_value','SENSOR DE COR: LUZ REFLETIDA %','#795548',[['porta','PORT',dropdown(sensorPorts)]],'Number');outputBlock('ev3_ambient_value','SENSOR DE COR: LUZ AMBIENTE %','#795548',[['porta','PORT',dropdown(sensorPorts)]],'Number');outputBlock('ev3_ultrasonic_value','ULTRASSÔNICO: DISTÂNCIA CM','#795548',[['porta','PORT',dropdown(sensorPorts)]],'Number');outputBlock('ev3_gyro_angle','GIROSCÓPIO: ÂNGULO','#795548',[['porta','PORT',dropdown(sensorPorts)]],'Number');outputBlock('ev3_gyro_rate','GIROSCÓPIO: TAXA DE ROTAÇÃO','#795548',[['porta','PORT',dropdown(sensorPorts)]],'Number');outputBlock('ev3_timer_value','TIMER: VALOR ATUAL','#795548',[],'Number');
+const oldGenerate=generate;
+
+py.forBlock.ev3_motor_speed=b=>`motor_${b.getFieldValue('PORT').toLowerCase()}.run(${Number(b.getFieldValue('SPEED'))*10})\n`;py.forBlock.ev3_motor_get_angle=b=>[`motor_${b.getFieldValue('PORT').toLowerCase()}.angle()`,py.ORDER_ATOMIC];
+py.forBlock.ev3_drive_distance=b=>`motor_${b.getFieldValue('LEFT').toLowerCase()}.run_angle(500, ${Number(b.getFieldValue('DIST'))})\n`+`motor_${b.getFieldValue('RIGHT').toLowerCase()}.run_angle(500, ${Number(b.getFieldValue('DIST'))})\n`;py.forBlock.ev3_drive_turn=b=>`motor_${b.getFieldValue('LEFT').toLowerCase()}.run_angle(500, ${Number(b.getFieldValue('ANGLE'))})\n`+`motor_${b.getFieldValue('RIGHT').toLowerCase()}.run_angle(-500, ${Number(b.getFieldValue('ANGLE'))})\n`;py.forBlock.ev3_drive_start=b=>`drive_left.run(${Number(b.getFieldValue('SPEED'))*10})\ndrive_right.run(${Number(b.getFieldValue('SPEED'))*10})\n`;py.forBlock.ev3_drive_stop=b=>'drive_left.stop()\ndrive_right.stop()\n';
+py.forBlock.ev3_screen_text=b=>`ev3.screen.draw_text(${b.getFieldValue('X')}, ${b.getFieldValue('Y')}, ${JSON.stringify(b.getFieldValue('TEXT'))})\n`;py.forBlock.ev3_screen_line=b=>`ev3.screen.draw_line(${b.getFieldValue('X1')}, ${b.getFieldValue('Y1')}, ${b.getFieldValue('X2')}, ${b.getFieldValue('Y2')})\n`;py.forBlock.ev3_screen_rect=b=>`ev3.screen.draw_box(${b.getFieldValue('X')}, ${b.getFieldValue('Y')}, ${b.getFieldValue('W')}, ${b.getFieldValue('H')})\n`;py.forBlock.ev3_screen_circle=b=>`ev3.screen.draw_circle(${b.getFieldValue('X')}, ${b.getFieldValue('Y')}, ${b.getFieldValue('R')})\n`;py.forBlock.ev3_screen_clear=b=>'ev3.screen.clear()\n';py.forBlock.ev3_note=b=>`ev3.speaker.beep(${b.getFieldValue('FREQ')}, ${b.getFieldValue('MS')})\n`;py.forBlock.ev3_sound_file=b=>`ev3.speaker.file(${JSON.stringify(b.getFieldValue('FILE'))})\n`;py.forBlock.ev3_sound_stop=b=>'ev3.speaker.stop()\n';py.forBlock.ev3_stop_script=b=>'raise SystemExit\n';py.forBlock.ev3_wait_until=b=>'# ESPERAR ATÉ: conecte uma condição\n';
+for(const n of ['ev3_event_touch','ev3_event_color','ev3_event_distance','ev3_event_gyro','ev3_event_message','ev3_event_timer'])py.forBlock[n]=b=>py.statementToCode(b,'DO');
+py.forBlock.ev3_touch_value=b=>[`touch_${b.getFieldValue('PORT').toLowerCase()}.pressed()`,py.ORDER_ATOMIC];py.forBlock.ev3_color_value=b=>[`str(color_sensor_${b.getFieldValue('PORT').slice(1)}.color())`,py.ORDER_ATOMIC];py.forBlock.ev3_reflected_value=b=>[`color_sensor_${b.getFieldValue('PORT').slice(1)}.reflection()`,py.ORDER_ATOMIC];py.forBlock.ev3_ambient_value=b=>[`color_sensor_${b.getFieldValue('PORT').slice(1)}.ambient()`,py.ORDER_ATOMIC];py.forBlock.ev3_ultrasonic_value=b=>[`ultrasonic_${b.getFieldValue('PORT').slice(1)}.distance()`,py.ORDER_ATOMIC];py.forBlock.ev3_gyro_angle=b=>[`gyro_${b.getFieldValue('PORT').slice(1)}.angle()`,py.ORDER_ATOMIC];py.forBlock.ev3_gyro_rate=b=>[`gyro_${b.getFieldValue('PORT').slice(1)}.speed()`,py.ORDER_ATOMIC];py.forBlock.ev3_timer_value=b=>['timer.time()/1000',py.ORDER_ATOMIC];
+const workspace=Blockly.inject('blocklyDiv',{toolbox,trashcan:true,media:'media/',scrollbars:true,
+  move:{scrollbars:true,drag:true,wheel:true},
+  zoom:{controls:true,wheel:true,startScale:.9,maxScale:1.5,minScale:.55},
+  sounds:false});
+function resizeBlockly(){Blockly.svgResize(workspace);}
+window.addEventListener('resize',resizeBlockly);
+setTimeout(resizeBlockly,100);
+function repairFlyoutLayout(){
+  const flyout=workspace.getFlyout();
+  if(!flyout) return;
+  const fw=flyout.getWorkspace();
+  const blocks=fw.getTopBlocks(false);
+  let y=12;
+  for(const block of blocks){
+    const pos=block.getRelativeToSurfaceXY();
+    block.moveBy(16-pos.x,y-pos.y);
+    y+=block.getHeightWidth().height+18;
+  }
+}
+workspace.addChangeListener(function(event){
+  if(event && String(event.type).toLowerCase().includes('toolbox')) setTimeout(repairFlyoutLayout,80);
+});
+setTimeout(repairFlyoutLayout,180);
+function allBlocks(t){return workspace.getAllBlocks(false).filter(b=>b.type===t)}
+function portsFor(types,field){let s=new Set();workspace.getAllBlocks(false).forEach(b=>{if(types.includes(b.type))s.add(b.getFieldValue(field))});return [...s].sort()}
+function generate(){let body=py.workspaceToCode(workspace),mp=portsFor(['ev3_motor_time','ev3_motor_angle','ev3_motor_forever','ev3_motor_speed','ev3_motor_stop','ev3_motor_reset','ev3_motor_get_angle'],'PORT').filter(p=>p!=='ALL'),tp=portsFor(['ev3_touch_wait','ev3_touch_value','ev3_event_touch'],'PORT'),cp=portsFor(['ev3_color_wait','ev3_color_value','ev3_reflected_value','ev3_ambient_value','ev3_event_color'],'PORT'),up=portsFor(['ev3_distance_wait','ev3_ultrasonic_value','ev3_event_distance'],'PORT'),gp=portsFor(['ev3_gyro_wait','ev3_gyro_angle','ev3_gyro_rate','ev3_event_gyro'],'PORT'),dp=[...new Set([...portsFor(['ev3_drive_distance','ev3_drive_turn'],'LEFT'),...portsFor(['ev3_drive_distance','ev3_drive_turn'],'RIGHT')])].filter(Boolean),timerUsed=workspace.getAllBlocks(false).some(b=>['ev3_timer_value','ev3_event_timer'].includes(b.type));let h='from pybricks.hubs import EV3Brick\nfrom pybricks.ev3devices import Motor, TouchSensor, ColorSensor, UltrasonicSensor, GyroSensor\nfrom pybricks.parameters import Port, Color, Button\nfrom pybricks.tools import wait, StopWatch\n\nev3 = EV3Brick()\n';if(mp.length){h+=mp.map(p=>`motor_${p.toLowerCase()} = Motor(Port.${p})`).join('\n')+'\n';h+=`motors = {${mp.map(p=>`'${p}': motor_${p.toLowerCase()}`).join(', ')}}\n`}else h+='motors = {}\n';if(dp.length)h+=`drive_left = motor_${dp[0].toLowerCase()}\ndrive_right = motor_${(dp[1]||dp[0]).toLowerCase()}\n`;if(tp.length)h+=tp.map(p=>`touch_${p.toLowerCase()} = TouchSensor(Port.${p})`).join('\n')+'\n';if(cp.length)h+=cp.map(p=>`color_sensor_${p.slice(1)} = ColorSensor(Port.${p})`).join('\n')+'\n';if(up.length)h+=up.map(p=>`ultrasonic_${p.slice(1)} = UltrasonicSensor(Port.${p})`).join('\n')+'\n';if(gp.length)h+=gp.map(p=>`gyro_${p.slice(1)} = GyroSensor(Port.${p})`).join('\n')+'\n';if(timerUsed)h+='timer = StopWatch()\n';return h+'\n'+(body||'# Adicione blocos ao programa\n')}
+function sendCodeToApp(){if(bridge)bridge.receive_code(generate())}function sendProjectToApp(){if(bridge)bridge.receive_project(Blockly.Xml.domToText(Blockly.Xml.workspaceToDom(workspace)),generate())}function loadProject(x){workspace.clear();Blockly.Xml.domToWorkspace(Blockly.utils.xml.textToDom(x),workspace)}workspace.addChangeListener(()=>{if(bridge)bridge.receive_code(generate())});
+</script></body></html>

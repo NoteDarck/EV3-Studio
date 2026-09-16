@@ -29,7 +29,15 @@ Os atalhos globais são: `Ctrl+N` novo projeto, `Ctrl+O` abrir, `Ctrl+S` salvar,
 
 O botão **🧪 Simular** abre um simulador físico visual baseado em **PyBullet**, dentro da própria janela do EV3 Studio. Ele mostra um robô 3D com chassis, quatro rodas, chão, gravidade, colisões, atrito e câmera. Comandos `run_time`, `run`, `run_angle` e `wait` são interpretados para movimentar o robô; não é aberto nenhum terminal separado. A simulação é uma prévia educacional e ainda não substitui o teste no EV3 real nem modela todos os sensores, engrenagens e cabos.
 
+O simulador reconhece os motores A, B, C e D para o teste de movimento. No modelo simplificado, qualquer motor de tração selecionado pode movimentar o chassi, portanto o exemplo com `motor_a` também funciona; não é necessário trocar o bloco para B.
+
+O editor carrega apenas o núcleo `blockly.min.js`; o antigo `blocks.min.js` não é carregado porque já registrava menus internos novamente e causava o erro `contextMenu_variableDynamicSetterGetter is already registered`.
+
+Se a instalação do PyBullet precisar compilar o pacote, o Linux deve ter compilador instalado. No Ubuntu/Debian use `sudo apt install build-essential`; no Arch/CachyOS use `sudo pacman -S --needed base-devel`. O `install.sh` agora informa essa solução quando a instalação falha.
+
 O menu **Ajuda** possui dois guias internos que funcionam sem internet: **Tutorial para iniciantes**, com o primeiro programa passo a passo, e **Conhecer o EV3 Studio**, que explica a interface, as categorias, a configuração do robô, o fluxo de geração Python e os atalhos.
+
+Em **Ajuda → Verificar atualizações**, o aplicativo consulta os Releases públicos de [NoteDarck/EV3-Studio](https://github.com/NoteDarck/EV3-Studio), compara a versão instalada e oferece abrir a página de download quando existe uma versão mais nova. A verificação ocorre em segundo plano e não substitui arquivos automaticamente.
 
 A configuração do robô permite escolher motores esquerdo/direito, diâmetro da roda, distância entre rodas, Bluetooth/USB e nome do EV3. Esses dados ficam em `~/.config/ev3-studio/robot.json`.
 
